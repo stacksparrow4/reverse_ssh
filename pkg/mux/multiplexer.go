@@ -349,6 +349,8 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 
 	m.result[protocols.HTTP] = newMultiplexerListener(m.listeners[address].Addr(), protocols.HTTP)
 
+	m.result[protocols.DownloadBash] = newMultiplexerListener(m.listeners[address].Addr(), protocols.DownloadBash)
+
 	// Starts the composer http server turns a bunch of posts/gets into a coherent connection
 	m.startHttpServer()
 
@@ -449,6 +451,10 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type
 	}
 
 	c := &bufferedConn{prefix: header[:n], conn: conn}
+
+	if bytes.HasPrefix(header, []byte{'B', 'S', 'H'}) {
+		return c, protocols.DownloadBash, nil
+	}
 
 	if bytes.HasPrefix(header, []byte{0x16}) {
 		return c, protocols.TLS, nil
@@ -617,4 +623,8 @@ func (m *Multiplexer) ControlRequests() net.Listener {
 
 func (m *Multiplexer) DownloadRequests() net.Listener {
 	return m.getProtoListener(protocols.Download)
+}
+
+func (m *Multiplexer) DownloadBash() net.Listener {
+	return m.getProtoListener(protocols.DownloadBash)
 }
