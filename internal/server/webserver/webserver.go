@@ -86,7 +86,7 @@ const notFound = `<html>
 </body>
 </html>`
 
-//go:embed no-wget/busybox_amd64
+//go:embed static/busybox_amd64
 var busyboxSrc []byte
 
 func respond(filename string, setHeader func(string, string), writer io.Writer, notFound func(), hostOverride *string) {
