@@ -178,6 +178,11 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		}
 	}
 
+	buildConfig.WriteablePath, err = line.GetArgString("wp")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
 	if spaceMatcher.MatchString(buildConfig.Owners) {
 		return errors.New("owners flag cannot contain any whitespace")
 	}
@@ -234,6 +239,7 @@ func (e *link) Help(explain bool) string {
 		"\t--no-lib-c\tCompile client without glibc",
 		"\t--sni\tWhen TLS is in use, set a custom SNI for the client to connect with",
 		"\t--owners|-o\tSet owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson ",
+		"\t--wp\tSet writeable path on the remote. Defaults to /dev",
 	)
 }
 

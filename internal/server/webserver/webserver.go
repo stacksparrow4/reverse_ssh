@@ -130,6 +130,7 @@ func respond(filename string, setHeader func(string, string), writer io.Writer, 
 				Host:     host,
 				Port:     port,
 				Protocol: "http",
+				WP:       f.WriteablePath,
 			}, linkExtension[1:])
 			if err != nil {
 				notFound()

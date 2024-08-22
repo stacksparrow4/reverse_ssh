@@ -17,6 +17,7 @@ type Args struct {
 	Name     string
 	Arch     string
 	OS       string
+	WP       string
 }
 
 func MakeTemplate(attributes Args, extension string) ([]byte, error) {

