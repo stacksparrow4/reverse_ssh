@@ -2,6 +2,9 @@ package webserver
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/gob"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -43,208 +46,236 @@ type BuildConfig struct {
 	WriteablePath string
 }
 
+func hashBuildConfig(config BuildConfig) string {
+	var b bytes.Buffer
+	gob.NewEncoder(&b).Encode(config)
+	shaSum := sha256.Sum256(b.Bytes())
+	return hex.EncodeToString(shaSum[:])
+}
+
 func Build(config BuildConfig) (string, error) {
 	if !webserverOn {
 		return "", errors.New("web server is not enabled")
 	}
 
-	if len(config.GOARCH) != 0 && !validArchs[config.GOARCH] {
-		return "", fmt.Errorf("GOARCH supplied is not valid: " + config.GOARCH)
-	}
+	buildConfigHash := hashBuildConfig(config)
 
-	if len(config.GOOS) != 0 && !validPlatforms[config.GOOS] {
-		return "", fmt.Errorf("GOOS supplied is not valid: " + config.GOOS)
-	}
-
-	if len(config.Fingerprint) == 0 {
-		config.Fingerprint = defaultFingerPrint
-	}
-
-	if config.UPX {
-		_, err := exec.LookPath("upx")
-		if err != nil {
-			return "", errors.New("upx could not be found in PATH")
-		}
-	}
-
-	buildTool := "go"
-	if config.Garble {
-		_, err := exec.LookPath("garble")
-		if err != nil {
-			return "", errors.New("garble could not be found in PATH")
-		}
-		buildTool = "garble"
-	}
-
-	var f data.Download
-
-	f.CallbackAddress = config.ConnectBackAdress
-
-	filename, err := internal.RandomString(16)
+	allDownloads, err := data.ListDownloads("")
 	if err != nil {
 		return "", err
 	}
 
-	if len(config.Name) == 0 {
-		config.Name, err = internal.RandomString(8)
+	var matchedDownload *data.Download
+
+	for _, currDownload := range allDownloads {
+		if currDownload.BuildConfigHash == buildConfigHash {
+			matchedDownload = &currDownload
+		}
+	}
+
+	if matchedDownload == nil {
+		var f data.Download
+
+		f.BuildConfigHash = buildConfigHash
+
+		// Cache miss
+		if len(config.GOARCH) != 0 && !validArchs[config.GOARCH] {
+			return "", fmt.Errorf("GOARCH supplied is not valid: " + config.GOARCH)
+		}
+
+		if len(config.GOOS) != 0 && !validPlatforms[config.GOOS] {
+			return "", fmt.Errorf("GOOS supplied is not valid: " + config.GOOS)
+		}
+
+		if len(config.Fingerprint) == 0 {
+			config.Fingerprint = defaultFingerPrint
+		}
+
+		if config.UPX {
+			_, err := exec.LookPath("upx")
+			if err != nil {
+				return "", errors.New("upx could not be found in PATH")
+			}
+		}
+
+		buildTool := "go"
+		if config.Garble {
+			_, err := exec.LookPath("garble")
+			if err != nil {
+				return "", errors.New("garble could not be found in PATH")
+			}
+			buildTool = "garble"
+		}
+
+		f.CallbackAddress = config.ConnectBackAdress
+
+		filename, err := internal.RandomString(16)
 		if err != nil {
 			return "", err
 		}
-	}
 
-	f.Goos = runtime.GOOS
-	if len(config.GOOS) > 0 {
-		f.Goos = config.GOOS
-	}
-
-	f.Goarch = runtime.GOARCH
-	if len(config.GOARCH) > 0 {
-		f.Goarch = config.GOARCH
-	}
-
-	f.Goarm = config.GOARM
-
-	if len(config.WriteablePath) == 0 {
-		config.WriteablePath = "/dev"
-	}
-	f.WriteablePath = config.WriteablePath
-
-	f.FilePath = filepath.Join(cachePath, filename)
-	f.FileType = "executable"
-	f.Version = internal.Version + "_guess"
-
-	repoVersion, err := exec.Command("git", "describe", "--tags").CombinedOutput()
-	if err == nil {
-		f.Version = string(repoVersion)
-	}
-
-	var buildArguments []string
-	if config.Garble {
-		buildArguments = append(buildArguments, "-tiny", "-literals")
-	}
-
-	buildArguments = append(buildArguments, "build", "-trimpath")
-
-	if config.SharedLibrary {
-		buildArguments = append(buildArguments, "-buildmode=c-shared")
-		buildArguments = append(buildArguments, "-tags=cshared")
-		f.FileType = "shared-object"
-		if f.Goos != "windows" {
-			f.FilePath += ".so"
-		} else {
-			f.FilePath += ".dll"
-		}
-
-	}
-
-	newPrivateKey, err := internal.GeneratePrivateKey()
-	if err != nil {
-		return "", err
-	}
-
-	sshPriv, err := ssh.ParsePrivateKey(newPrivateKey)
-	if err != nil {
-		return "", err
-	}
-
-	err = os.WriteFile(filepath.Join(projectRoot, "internal/client/keys/private_key"), newPrivateKey, 0600)
-	if err != nil {
-		return "", err
-	}
-
-	publicKeyBytes := ssh.MarshalAuthorizedKey(sshPriv.PublicKey())
-
-	err = os.WriteFile(filepath.Join(projectRoot, "internal/client/keys/private_key.pub"), publicKeyBytes, 0600)
-	if err != nil {
-		return "", err
-	}
-
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", config.ConnectBackAdress, config.Fingerprint, config.Proxy, config.SNI, strings.TrimSpace(f.Version)))
-	buildArguments = append(buildArguments, "-o", f.FilePath, filepath.Join(projectRoot, "/cmd/client"))
-
-	cmd := exec.Command(buildTool, buildArguments...)
-
-	if config.DisableLibC {
-		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-	}
-
-	cmd.Env = append(cmd.Env, os.Environ()...)
-	cmd.Env = append(cmd.Env, "GOOS="+f.Goos)
-	cmd.Env = append(cmd.Env, "GOARCH="+f.Goarch)
-	if len(f.Goarm) != 0 {
-		cmd.Env = append(cmd.Env, "GOARM="+f.Goarm)
-	}
-
-	//Building a shared object for windows needs some extra beans
-	cgoOn := "0"
-	if config.SharedLibrary {
-
-		var crossCompiler string
-		if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && f.Goos == "windows" {
-			crossCompiler = "x86_64-w64-mingw32-gcc"
-			if f.Goarch == "386" {
-				crossCompiler = "i686-w64-mingw32-gcc"
-			}
-		}
-
-		cmd.Env = append(cmd.Env, "CC="+crossCompiler)
-		cgoOn = "1"
-	}
-
-	cmd.Env = append(cmd.Env, "CGO_ENABLED="+cgoOn)
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		if strings.Contains(err.Error(), "garble") && (strings.Contains(err.Error(), "i686-w64-mingw32-ld") || strings.Contains(err.Error(), "x86_64-w64-mingw32-ld")) &&
-			strings.Contains(err.Error(), "undefined reference to") {
-			// Try to recover if the linking fails by clearing the cache
-			if cleanErr := exec.Command("go", "clean", "-cache").Run(); cleanErr != nil {
-				return "", fmt.Errorf("Error (was unable to automatically clean cache): " + err.Error() + "\n" + string(output))
-			}
-			output, err = cmd.CombinedOutput()
+		if len(config.Name) == 0 {
+			config.Name, err = internal.RandomString(8)
 			if err != nil {
+				return "", err
+			}
+		}
+
+		f.Goos = runtime.GOOS
+		if len(config.GOOS) > 0 {
+			f.Goos = config.GOOS
+		}
+
+		f.Goarch = runtime.GOARCH
+		if len(config.GOARCH) > 0 {
+			f.Goarch = config.GOARCH
+		}
+
+		f.Goarm = config.GOARM
+
+		if len(config.WriteablePath) == 0 {
+			config.WriteablePath = "/dev"
+		}
+		f.WriteablePath = config.WriteablePath
+
+		f.FilePath = filepath.Join(cachePath, filename)
+		f.FileType = "executable"
+		f.Version = internal.Version + "_guess"
+
+		repoVersion, err := exec.Command("git", "describe", "--tags").CombinedOutput()
+		if err == nil {
+			f.Version = string(repoVersion)
+		}
+
+		var buildArguments []string
+		if config.Garble {
+			buildArguments = append(buildArguments, "-tiny", "-literals")
+		}
+
+		buildArguments = append(buildArguments, "build", "-trimpath")
+
+		if config.SharedLibrary {
+			buildArguments = append(buildArguments, "-buildmode=c-shared")
+			buildArguments = append(buildArguments, "-tags=cshared")
+			f.FileType = "shared-object"
+			if f.Goos != "windows" {
+				f.FilePath += ".so"
+			} else {
+				f.FilePath += ".dll"
+			}
+		}
+
+		newPrivateKey, err := internal.GeneratePrivateKey()
+		if err != nil {
+			return "", err
+		}
+
+		sshPriv, err := ssh.ParsePrivateKey(newPrivateKey)
+		if err != nil {
+			return "", err
+		}
+
+		err = os.WriteFile(filepath.Join(projectRoot, "internal/client/keys/private_key"), newPrivateKey, 0600)
+		if err != nil {
+			return "", err
+		}
+
+		publicKeyBytes := ssh.MarshalAuthorizedKey(sshPriv.PublicKey())
+
+		err = os.WriteFile(filepath.Join(projectRoot, "internal/client/keys/private_key.pub"), publicKeyBytes, 0600)
+		if err != nil {
+			return "", err
+		}
+
+		buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", config.ConnectBackAdress, config.Fingerprint, config.Proxy, config.SNI, strings.TrimSpace(f.Version)))
+		buildArguments = append(buildArguments, "-o", f.FilePath, filepath.Join(projectRoot, "/cmd/client"))
+
+		cmd := exec.Command(buildTool, buildArguments...)
+
+		if config.DisableLibC {
+			cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+		}
+
+		cmd.Env = append(cmd.Env, os.Environ()...)
+		cmd.Env = append(cmd.Env, "GOOS="+f.Goos)
+		cmd.Env = append(cmd.Env, "GOARCH="+f.Goarch)
+		if len(f.Goarm) != 0 {
+			cmd.Env = append(cmd.Env, "GOARM="+f.Goarm)
+		}
+
+		//Building a shared object for windows needs some extra beans
+		cgoOn := "0"
+		if config.SharedLibrary {
+
+			var crossCompiler string
+			if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && f.Goos == "windows" {
+				crossCompiler = "x86_64-w64-mingw32-gcc"
+				if f.Goarch == "386" {
+					crossCompiler = "i686-w64-mingw32-gcc"
+				}
+			}
+
+			cmd.Env = append(cmd.Env, "CC="+crossCompiler)
+			cgoOn = "1"
+		}
+
+		cmd.Env = append(cmd.Env, "CGO_ENABLED="+cgoOn)
+
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			if strings.Contains(err.Error(), "garble") && (strings.Contains(err.Error(), "i686-w64-mingw32-ld") || strings.Contains(err.Error(), "x86_64-w64-mingw32-ld")) &&
+				strings.Contains(err.Error(), "undefined reference to") {
+				// Try to recover if the linking fails by clearing the cache
+				if cleanErr := exec.Command("go", "clean", "-cache").Run(); cleanErr != nil {
+					return "", fmt.Errorf("Error (was unable to automatically clean cache): " + err.Error() + "\n" + string(output))
+				}
+				output, err = cmd.CombinedOutput()
+				if err != nil {
+					return "", fmt.Errorf("Error: " + err.Error() + "\n" + string(output))
+				}
+			} else {
 				return "", fmt.Errorf("Error: " + err.Error() + "\n" + string(output))
 			}
-		} else {
-			return "", fmt.Errorf("Error: " + err.Error() + "\n" + string(output))
 		}
-	}
 
-	f.UrlPath = config.Name
+		f.UrlPath = config.Name
 
-	if config.UPX {
-		output, err := exec.Command("upx", "-qq", "-f", f.FilePath).CombinedOutput()
+		if config.UPX {
+			output, err := exec.Command("upx", "-qq", "-f", f.FilePath).CombinedOutput()
+			if err != nil {
+				return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
+			}
+		}
+
+		fi, err := os.Stat(f.FilePath)
 		if err != nil {
-			return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
+			fmt.Println("Error: ", err)
 		}
+		f.FileSize = float64(fi.Size()) / 1024 / 1024
+
+		os.Chmod(f.FilePath, 0600)
+
+		err = data.CreateDownload(f)
+		if err != nil {
+			return "", err
+		}
+
+		Autocomplete.Add(config.Name)
+
+		authorizedControlleeKeys, err := os.OpenFile(filepath.Join(cachePath, "../authorized_controllee_keys"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return "", errors.New("cant open authorized controllee keys file: " + err.Error())
+		}
+		defer authorizedControlleeKeys.Close()
+
+		if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s %s\n", "owner="+strconv.Quote(config.Owners), publicKeyBytes[:len(publicKeyBytes)-1], config.Comment)); err != nil {
+			return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
+		}
+
+		matchedDownload = &f
 	}
 
-	fi, err := os.Stat(f.FilePath)
-	if err != nil {
-		fmt.Println("Error: ", err)
-	}
-	f.FileSize = float64(fi.Size()) / 1024 / 1024
-
-	os.Chmod(f.FilePath, 0600)
-
-	err = data.CreateDownload(f)
-	if err != nil {
-		return "", err
-	}
-
-	Autocomplete.Add(config.Name)
-
-	authorizedControlleeKeys, err := os.OpenFile(filepath.Join(cachePath, "../authorized_controllee_keys"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		return "", errors.New("cant open authorized controllee keys file: " + err.Error())
-	}
-	defer authorizedControlleeKeys.Close()
-
-	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s %s\n", "owner="+strconv.Quote(config.Owners), publicKeyBytes[:len(publicKeyBytes)-1], config.Comment)); err != nil {
-		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
-	}
-
-	return sampleCommands(DefaultConnectBack, config.Name), nil
+	return sampleCommands(matchedDownload.CallbackAddress, matchedDownload.UrlPath), nil
 }
 
 func sampleCommands(hostPort string, name string) string {

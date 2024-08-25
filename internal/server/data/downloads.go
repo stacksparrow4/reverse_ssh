@@ -25,6 +25,8 @@ type Download struct {
 	FileSize        float64
 
 	WriteablePath string
+
+	BuildConfigHash string
 }
 
 func CreateDownload(file Download) error {
