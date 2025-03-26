@@ -172,7 +172,7 @@ func CheckAuth(keysPath string, publicKey ssh.PublicKey, src net.IP, insecure bo
 
 	keys, err := readPubKeys(keysPath)
 	if err != nil {
-		return nil, ErrKeyNotInList
+		return nil, err
 	}
 
 	var opt Options
