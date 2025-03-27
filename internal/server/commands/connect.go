@@ -152,6 +152,28 @@ func createSession(sshConn ssh.Conn, ptyReq internal.PtyReq, shell string) (sc s
 	return splice, nil
 }
 
+func ioCopyWithOverflow(dst io.Writer, src io.Reader) []byte {
+	buf := make([]byte, 32*1024)
+
+	for {
+		nr, err := src.Read(buf)
+		if err != nil {
+			return []byte{}
+		}
+
+		if nr == 0 {
+			continue
+		}
+
+		toWrite := buf[:nr]
+
+		nw, err := dst.Write(toWrite)
+		if err != nil {
+			return toWrite[nw:]
+		}
+	}
+}
+
 func attachSession(newSession ssh.Channel, currentClientSession io.ReadWriter, currentClientRequests <-chan *ssh.Request) error {
 
 	finished := make(chan bool)
@@ -169,9 +191,11 @@ func attachSession(newSession ssh.Channel, currentClientSession io.ReadWriter, c
 
 	go func() {
 		//dst <- src
-		io.Copy(newSession, currentClientSession)
+		overflow := ioCopyWithOverflow(newSession, currentClientSession)
 		once.Do(close)
 
+		// This function is for writing the current terminal to the remote ssh
+		fmt.Printf("OVERFLOW: %v\n", overflow)
 	}()
 
 	//newSession being the remote host being controlled
