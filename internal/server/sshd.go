@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net"
 	"os"
@@ -32,7 +33,7 @@ type Options struct {
 func readPubKeys(path string) (m map[string]Options, err error) {
 	authorizedKeysBytes, err := os.ReadFile(path)
 	if err != nil {
-		return m, fmt.Errorf("failed to load file %s, err: %v", path, err)
+		return m, fmt.Errorf("failed to load file %s, err: %w", path, err)
 	}
 
 	keys := bytes.Split(authorizedKeysBytes, []byte("\n"))
@@ -287,7 +288,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 				return perm, err
 			}
 
-			if err != ErrKeyNotInList {
+			if err != ErrKeyNotInList && !errors.Is(err, fs.ErrNotExist) {
 				err = fmt.Errorf("user (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
 				if isUntrustWorthy {
 					err = fmt.Errorf("user (%s) denied login: cannot connect users via pivoted server port (may result in allow list bypass)", strconv.QuoteToGraphic(conn.User()))
