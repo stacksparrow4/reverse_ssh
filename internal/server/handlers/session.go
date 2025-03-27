@@ -70,7 +70,7 @@ func Session(datadir string) ChannelHandler {
 					if m, ok := c[line.Command.Value()]; ok {
 
 						req.Reply(true, nil)
-						err := m.Run(user, connection, line)
+						err := m.Run(user, connection, line, func(b []byte) {})
 						if err != nil {
 							sendExitCode(1, connection)
 							fmt.Fprintf(connection, "%s", err.Error())

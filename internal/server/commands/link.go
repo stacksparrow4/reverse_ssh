@@ -62,7 +62,7 @@ func (l *link) ValidArgs() map[string]string {
 	return r
 }
 
-func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	if toList, ok := line.Flags["l"]; ok {
 		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "Log Level", "GOOS", "GOARCH", "Version", "Type", "Hits", "Size")

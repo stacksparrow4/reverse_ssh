@@ -14,7 +14,7 @@ func (e *clear) ValidArgs() map[string]string {
 	return map[string]string{}
 }
 
-func (e *clear) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (e *clear) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	term, ok := tty.(*terminal.Terminal)
 	if !ok {

@@ -13,7 +13,7 @@ import (
 type access struct {
 }
 
-func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	var err error
 

@@ -18,7 +18,7 @@ func (h *help) ValidArgs() map[string]string {
 	return map[string]string{"l": "List all function names only"}
 }
 
-func (h *help) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (h *help) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	if line.IsSet("l") {
 		funcs := []string{}

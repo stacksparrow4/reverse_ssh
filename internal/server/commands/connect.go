@@ -26,7 +26,7 @@ func (c *connect) ValidArgs() map[string]string {
 	}
 }
 
-func (c *connect) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (c *connect) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	sess, err := c.user.Session(c.session)
 	if err != nil {

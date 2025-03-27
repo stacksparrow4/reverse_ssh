@@ -259,7 +259,7 @@ func (w *listen) ValidArgs() map[string]string {
 	return r
 }
 
-func (w *listen) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (w *listen) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	onAddrs, err := line.GetArgsString("on")
 	if err != nil && err != terminal.ErrFlagNotSet {

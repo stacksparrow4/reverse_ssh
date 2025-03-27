@@ -15,7 +15,7 @@ func (p *privilege) ValidArgs() map[string]string {
 	return map[string]string{}
 }
 
-func (p *privilege) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (p *privilege) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	fmt.Fprintf(tty, "%s\n", user.PrivilegeString())
 

@@ -15,7 +15,7 @@ func (w *who) ValidArgs() map[string]string {
 	return map[string]string{}
 }
 
-func (w *who) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (w *who) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	allUsers := users.ListUsers()
 

@@ -42,7 +42,7 @@ func (k *shellAutocomplete) ValidArgs() map[string]string {
 	}
 }
 
-func (k *shellAutocomplete) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (k *shellAutocomplete) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	if line.IsSet("clients") {
 		clients, err := user.SearchClients("")

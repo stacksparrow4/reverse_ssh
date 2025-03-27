@@ -16,7 +16,7 @@ func (v *version) ValidArgs() map[string]string {
 	return map[string]string{}
 }
 
-func (v *version) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (v *version) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 	fmt.Fprintln(tty, internal.Version)
 	return nil
 }

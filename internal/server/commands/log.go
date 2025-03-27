@@ -23,7 +23,7 @@ func (l *logCommand) ValidArgs() map[string]string {
 	}
 }
 
-func (l *logCommand) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *logCommand) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	if !line.IsSet("c") {
 		fmt.Fprintln(tty, "missing client -c")

@@ -22,7 +22,7 @@ func (w *webhook) ValidArgs() map[string]string {
 	}
 }
 
-func (w *webhook) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (w *webhook) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 	if len(line.Flags) < 1 {
 		fmt.Fprintf(tty, "%s", w.Help(false))
 		return nil

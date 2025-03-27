@@ -11,7 +11,7 @@ type Command interface {
 	Expect(line ParsedLine) []string
 
 	// Run the command with the given arguments
-	Run(user *users.User, output io.ReadWriter, line ParsedLine) error
+	Run(user *users.User, output io.ReadWriter, line ParsedLine, feedOverflow func([]byte)) error
 
 	// Give helptext for commands
 	Help(explain bool) string

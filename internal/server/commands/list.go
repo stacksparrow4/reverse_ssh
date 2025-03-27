@@ -55,7 +55,7 @@ func (l *list) ValidArgs() map[string]string {
 		"h": "Print help"}
 }
 
-func (l *list) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *list) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	filter := ""
 	if len(line.ArgumentsAsStrings()) > 0 {

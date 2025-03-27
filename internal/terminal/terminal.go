@@ -427,7 +427,7 @@ var (
 )
 
 // bytesToKey tries to parse a key sequence from b. If successful, it returns
-// the key and the remainder of the input. Otherwise it returns utf8.RuneError.
+// the key and the remainder of the input. Otherwise it returns utf8_, .RuneError.
 func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 	if len(b) == 0 {
 		return utf8.RuneError, nil
@@ -592,7 +592,7 @@ func (t *Terminal) Run() error {
 				continue
 			}
 
-			err = f.Run(t.user, t, parsedLine)
+			err = f.Run(t.user, t, parsedLine, t.c.Feed)
 			if err != nil {
 				if err == io.EOF {
 					return err

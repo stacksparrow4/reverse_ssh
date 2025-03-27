@@ -22,7 +22,7 @@ func (e *exec) ValidArgs() map[string]string {
 	}
 }
 
-func (e *exec) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (e *exec) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 	if len(line.Arguments) < 2 {
 		return fmt.Errorf("Not enough arguments supplied. Needs at least, host|filter command...")
 	}

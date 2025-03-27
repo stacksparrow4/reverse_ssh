@@ -19,7 +19,7 @@ func (k *kill) ValidArgs() map[string]string {
 	return map[string]string{"y": "Do not prompt for confirmation before killing clients"}
 }
 
-func (k *kill) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (k *kill) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	if len(line.Arguments) != 1 {
 		return errors.New(k.Help(false))

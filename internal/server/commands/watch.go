@@ -26,7 +26,7 @@ func (w *watch) ValidArgs() map[string]string {
 	}
 }
 
-func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, feedOverflow func([]byte)) error {
 
 	if line.IsSet("a") {
 
